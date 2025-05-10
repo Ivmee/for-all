@@ -81,7 +81,7 @@ class ProjectileSimulator:
             0, self.ground_level, 
             self.width, self.ground_level, 
             fill="green", 
-            width=2
+            width=10
         )
         
         # Метки для результатов
@@ -142,8 +142,8 @@ class ProjectileSimulator:
         )
         
         self.projectile = self.canvas.create_oval(
-            self.x - 5, self.y - 5,
-            self.x + 5, self.y + 5,
+            self.x , self.y ,
+            self.x , self.y ,
             fill="red"
         )
         
