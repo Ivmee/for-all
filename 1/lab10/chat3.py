@@ -4,7 +4,7 @@ import math
 import time
 
 # Константы
-GRAVITY = 9.81  # ускорение свободного падения (м/с^2)
+g = 9.81  # ускорение свободного падения (м/с^2)
 
 class ProjectileSimulator:
     def __init__(self, root):
@@ -16,7 +16,7 @@ class ProjectileSimulator:
         self.canvas_width = 1500
         self.canvas_height = 600
 
-        # Флаг для паузы и остановки
+        
         self.running = False
         self.simulation_active = False
 
@@ -37,6 +37,8 @@ class ProjectileSimulator:
         self.drag_entry = tk.Entry(self.root)
         self.drag_entry.insert(0, "0")
         self.drag_entry.grid(row=2, column=1)
+
+        
 
         # Ползунок для масштаба
         tk.Label(self.root, text="Масштаб (пикселей/м):").grid(row=3, column=0)
@@ -125,7 +127,7 @@ class ProjectileSimulator:
         self.vy -= self.drag * self.vy * self.dt
 
         self.x += self.vx * self.dt
-        self.vy -= GRAVITY * self.dt
+        self.vy -= g * self.dt
         self.y += self.vy * self.dt
 
         if self.y < 0:
