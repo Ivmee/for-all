@@ -122,13 +122,16 @@ class ProjectileSimulator:
         if not self.running or self.y < 0:
             return
 
-        speed = math.sqrt(self.vx**2 + self.vy**2)
         self.vx -= self.drag * self.vx * self.dt
         self.vy -= self.drag * self.vy * self.dt
 
         self.x += self.vx * self.dt
         self.vy -= g * self.dt
         self.y += self.vy * self.dt
+
+        canvas_x = self.x * self.scale
+        canvas_y = self.canvas_height - self.y * self.scale
+        self.points.append((canvas_x, canvas_y))
 
         if self.y < 0:
             max_height = max((self.canvas_height - p[1]) / self.scale for p in self.points)
@@ -137,10 +140,6 @@ class ProjectileSimulator:
                 text=f"Максимальная высота: {max_height:.2f} м, Дальность: {range_:.2f} м"
             )
             return
-
-        canvas_x = self.x * self.scale
-        canvas_y = self.canvas_height - self.y * self.scale
-        self.points.append((canvas_x, canvas_y))
 
         if len(self.points) > 1:
             self.canvas.create_line(
