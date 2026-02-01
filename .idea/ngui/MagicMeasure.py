@@ -71,97 +71,113 @@ class CommandServerClass:
 			self.HardwareInit()
 	
 	def HardwareInit(self, meas_port=None,comm_port=None):
-		def send_status(message, color):
+		def send_status(message, color, target='MEAS'):
 			if hasattr(self, 'gui'):
 				self.gui.CallbackData.Lock()
-				# Мы добавляем новые поля msg и color в событие
-				event = self.gui.CallbackEventGeneral(command='STATUS', msg=message, color=color)
+				# Передаем target в событие
+				event = self.gui.CallbackEventGeneral(command='STATUS', msg=message, color=color, target=target)
 				wx.QueueEvent(self.gui.GetEventHandler(), event)
 				self.gui.CallbackData.Unlock()
 
 		# 1. Сначала закрываем старое соединение, если оно уже есть
-		
-		if hasattr(self, 'MeasAdapter') and self.MeasAdapter:
-			try:
-				self.MeasAdapter.connection.close()
-			except:
-				pass
+		if meas_port or (meas_port is None and comm_port is None):
+			if hasattr(self, 'MeasAdapter') and self.MeasAdapter:
+				try:
+					self.MeasAdapter.connection.close()
+				except:
+					pass
 
-		# 2.  выбор пути к порту
-		if meas_port:
-			# Если порт передан аргументом (из GUI), используем его
-			MeasAdapterPath = meas_port
-			# Сбрасываем хендлер эмулятора, так как мы на реальном железе
-			self.MeasAdapterHandler = None 
-		else:
-			# ЕСЛИ ПОРТ НЕ ВЫБРАН
-			MeasAdapterPath = "/dev/ttyS0"
-			self.MeasAdapterHandler = None
-			if not os.path.exists(MeasAdapterPath):
-				print("meas emulation mode") # Эмуляция
-				MeasAdapterPath = "/home/user/Temp/ttyV0"
-				# Проверяем, запущен ли уже socat, если нет - запускаем
+			# 2.  выбор пути к порту
+			if meas_port:
+				# Если порт передан аргументом (из GUI), используем его
+				MeasAdapterPath = meas_port
+				# Сбрасываем хендлер эмулятора, так как мы на реальном железе
+				self.MeasAdapterHandler = None 
+			else:
+				# ЕСЛИ ПОРТ НЕ ВЫБРАН
+				MeasAdapterPath = "/dev/ttyS0"
+				self.MeasAdapterHandler = None
 				if not os.path.exists(MeasAdapterPath):
-					self.MeasAdapterHandler = subprocess.Popen(["socat", "-d", "-d", "pty,raw,echo=0,link=/home/user/Temp/ttyV0", "pty,raw,echo=0,link=/home/user/Temp/ttyV1"])
-					sleep(0.5)
+					print("meas emulation mode") # Эмуляция
+					MeasAdapterPath = "/home/user/Temp/ttyV0"
+					# Проверяем, запущен ли уже socat, если нет - запускаем
+					if not os.path.exists(MeasAdapterPath):
+						self.MeasAdapterHandler = subprocess.Popen(["socat", "-d", "-d", "pty,raw,echo=0,link=/home/user/Temp/ttyV0", "pty,raw,echo=0,link=/home/user/Temp/ttyV1"])
+						sleep(0.5)
 
-		print(f"Connecting to MeasAdapter at: {MeasAdapterPath}")
-		send_status("Connecting", wx.Colour(200, 150, 0))
-
-		# 3. Подключение к прибору 
-		try:
-			self.MeasAdapter = SerialAdapter(MeasAdapterPath,
-									baudrate=57600,
-									timeout=0.1,
-									write_timeout=0.1)
-			
-			self.SoureMeter = Keithley2400(self.MeasAdapter)
-			self.SoureMeter.reset()
-			self.SoureMeter.use_front_terminals()
-			
-			# Восстанавливаем настройки (Front/Rear) из положения слайдера в GUI
-			# Проверяем, существует ли gui, на случай сухого запуска
-			if hasattr(self, 'gui') and self.gui.InputSlider.GetValue():
-				self.SoureMeter.use_rear_terminals()
+			print(f"Connecting to MeasAdapter at: {MeasAdapterPath}")
+			send_status("Connecting", wx.Colour(200, 150, 0),target='MEAS')
+			# Сохраняем выбранный путь в переменную класса, чтобы потом сравнить
+			self.MeasAdapterPath = MeasAdapterPath
+			# 3. Подключение к прибору 
+			try:
+				self.MeasAdapter = SerialAdapter(MeasAdapterPath,
+										baudrate=57600,
+										timeout=0.1,
+										write_timeout=0.1)
 				
-			print("Keithley Connected Successfully!")
-			send_status("Connected Successfully", wx.Colour(0, 180, 0))
+				self.SoureMeter = Keithley2400(self.MeasAdapter)
+				self.SoureMeter.reset()
+				self.SoureMeter.use_front_terminals()
+				
+				# Восстанавливаем настройки (Front/Rear) из положения слайдера в GUI
+				# Проверяем, существует ли gui, на случай сухого запуска
+				if hasattr(self, 'gui') and self.gui.InputSlider.GetValue():
+					self.SoureMeter.use_rear_terminals()
+					
+				print("Keithley Connected Successfully!")
+				send_status("Connected", wx.Colour(0, 180, 0),target='MEAS')
 
-		except Exception as e:
-			print(f"Connection Error: {e}")
-			err_msg = str(e).split('(')[0][:25]
-			send_status("Error", wx.Colour(255, 0, 0))
+			except Exception as e:
+				print(f"Connection Error: {e}")
+				err_msg = str(e).split('(')[0][:25]
+				send_status("Error", wx.Colour(255, 0, 0),target='MEAS')
 
 
 		
 		# КОММУТАТОР (
 		# Выполняем, если передан comm_port ИЛИ если это первый запуск (оба None)
 		if comm_port or (meas_port is None and comm_port is None):
-			# Закрываем старое
+			# 1. Закрываем старое
 			if hasattr(self, 'CommutatorAdapter') and self.CommutatorAdapter:
 				try: self.CommutatorAdapter.connection.close()
 				except: pass
 			
-			# Выбираем путь
+			# 2. Выбираем путь
 			if comm_port:
 				CommPath = comm_port
 				self.CommutatorAdapterHandler = None
 			else:
-				# Стандартная логика / Эмуляция
+				
 				CommPath = "/dev/ttyACM0"
 				self.CommutatorAdapterHandler = None
 				if not os.path.exists(CommPath):
+					
 					CommPath = "/home/user/Temp/ttyV2"
 					if not os.path.exists(CommPath):
 						self.CommutatorAdapterHandler = subprocess.Popen(["socat", "-d", "-d", "pty,raw,echo=0,link=/home/user/Temp/ttyV2", "pty,raw,echo=0,link=/home/user/Temp/ttyV3"])
 						sleep(0.5)
+				# ПРОВЕРКА НА ДУБЛИРОВАНИЕ ПОРТОВ
+			# Получаем текущий порт Keithley
+			current_keithley = getattr(self, 'MeasAdapterPath', None)
 			
+			if current_keithley and CommPath == current_keithley:
+				print(f"CONFLICT: Port {CommPath} is busy by Keithley!")
+				send_status("Port Conflict!", wx.Colour(255, 0, 0), target='COMM')
+				# Прерываем выполнение
+				return
 			print(f"Connecting Commutator to: {CommPath}")
+			send_status("Connecting...", wx.Colour(200, 150, 0), target='COMM')
+
+			# 3. Подключение
 			try:
 				self.CommutatorAdapter = SerialAdapter(CommPath, baudrate=9600, timeout=0.1, write_timeout=0.1)
 				print("Commutator Connected!")
+				send_status("Connected", wx.Colour(0, 180, 0), target='COMM')
 			except Exception as e:
 				print(f"Commutator Error: {e}")
+				err_msg = str(e).split('(')[0][:20]
+				send_status("Error: ", wx.Colour(255, 0, 0), target='COMM')
 		
 	
 	def runCHANNEL(self, command):
@@ -602,16 +618,19 @@ class MainFrame(MainFrameGUI):
 						wx.Colour(230,107,0),
 						]
 		
+		self.CallbackData = CallbackClass()
+		self.CallbackEventGeneral, self.EVT_CALLBACK_EVENT_GENERAL = wx.lib.newevent.NewEvent()
+		self.CallbackEventCurrent, self.EVT_CALLBACK_EVENT_CURRENT = wx.lib.newevent.NewEvent()
+		self.Bind(self.EVT_CALLBACK_EVENT_GENERAL, self.CSCallbackGeneral)
+
+		
 		self.CommandServer = CommandServerClass(self)
 		self.CommandServerThread = threading.Thread(target=self.CommandServer.run)
 		self.CommandServerThread.start()
 
 		# Регистрация события для обратной передачи данных в GUI из коммандного сервера
 		# self.CallbackEvent будет использоваться для создания экземпляра события в коммандном сервере
-		self.CallbackData = CallbackClass()
-		self.CallbackEventGeneral, self.EVT_CALLBACK_EVENT_GENERAL = wx.lib.newevent.NewEvent()
-		self.CallbackEventCurrent, self.EVT_CALLBACK_EVENT_CURRENT = wx.lib.newevent.NewEvent()
-		self.Bind(self.EVT_CALLBACK_EVENT_GENERAL, self.CSCallbackGeneral)
+		
 
 		self.GraphRedraw()
 		self.Maximize(True)
@@ -724,11 +743,25 @@ class MainFrame(MainFrameGUI):
 
 		command = event.command
 		if command == 'STATUS':
-			# Проверяем, существует ли надпись (на случай ошибок)
-			if hasattr(self, 'StatusLabel'):
-				self.StatusLabel.SetLabel(event.msg)           # Меняем текст
-				self.StatusLabel.SetForegroundColour(event.color) # Меняем цвет
-				self.SettingsPanel.Layout() # Обновляем верстку, если текст длинный
+			# Получаем цель сообщения  Keithley)\
+			target = getattr(event, 'target', 'MEAS')
+			
+			msg = event.msg
+			color = event.color
+			
+			if target == 'MEAS':
+				# Обновляем  статус (Keithley)
+				if hasattr(self, 'StatusLabel'):
+					self.StatusLabel.SetLabel(msg)
+					self.StatusLabel.SetForegroundColour(color)
+			
+			elif target == 'COMM':
+				# Обновляем  статус (Коммутатор)
+				if hasattr(self, 'StatusLabel1'):
+					self.StatusLabel1.SetLabel(msg)
+					self.StatusLabel1.SetForegroundColour(color)
+			
+			self.SettingsPanel.Layout() # Обновляем верстку
 			return	
 
 
