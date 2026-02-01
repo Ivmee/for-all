@@ -259,10 +259,14 @@ class CommandServerClass:
 			# ~ continue
 		
 		if (not DRYRUN) and (not args[5]):
-			self.SoureMeter.apply_voltage(compliance_current=currLim)
-			self.SoureMeter.measure_current()
-			self.SoureMeter.enable_source()
-		
+			try:
+				self.SoureMeter.apply_voltage(compliance_current=currLim)
+				self.SoureMeter.measure_current()
+				self.SoureMeter.enable_source()
+			except Exception as e:
+				print(f"Error {e}")
+				return
+			
 		out = open(SavePath,'w')
 		for iv,voltage in enumerate(Voltages):
 			if self.STOP:
@@ -333,12 +337,16 @@ class CommandServerClass:
 			# ~ continue
 		
 		if not DRYRUN:
-			self.SoureMeter.apply_voltage(compliance_current=currLim)
-			self.SoureMeter.measure_current()
-			self.SoureMeter.enable_source()
-			sleep(timing)
-			self.SoureMeter.source_voltage = Voltage
-			sleep(timing)
+			try:
+				self.SoureMeter.apply_voltage(compliance_current=currLim)
+				self.SoureMeter.measure_current()
+				self.SoureMeter.enable_source()
+				sleep(timing)
+				self.SoureMeter.source_voltage = Voltage
+				sleep(timing)
+			except Exception as e:
+				print(f"Error {e}")
+				return
 		
 		out = open(SavePath,'w')
 		startindex_disp = 0
