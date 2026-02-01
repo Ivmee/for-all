@@ -70,7 +70,7 @@ class CommandServerClass:
 		if not DRYRUN:
 			self.HardwareInit()
 	
-	def HardwareInit(self, meas_port=None):
+	def HardwareInit(self, meas_port=None,comm_port=None):
 		def send_status(message, color):
 			if hasattr(self, 'gui'):
 				self.gui.CallbackData.Lock()
@@ -80,14 +80,14 @@ class CommandServerClass:
 				self.gui.CallbackData.Unlock()
 
 		# 1. Сначала закрываем старое соединение, если оно уже есть
-		# Это нужно, чтобы освободить порт перед переподключением
+		
 		if hasattr(self, 'MeasAdapter') and self.MeasAdapter:
 			try:
 				self.MeasAdapter.connection.close()
 			except:
 				pass
 
-		# 2. Логика выбора пути к порту
+		# 2.  выбор пути к порту
 		if meas_port:
 			# Если порт передан аргументом (из GUI), используем его
 			MeasAdapterPath = meas_port
@@ -106,7 +106,7 @@ class CommandServerClass:
 					sleep(0.5)
 
 		print(f"Connecting to MeasAdapter at: {MeasAdapterPath}")
-		send_status(f"Connecting to {os.path.basename(MeasAdapterPath)}...", wx.Colour(200, 150, 0))
+		send_status("Connecting", wx.Colour(200, 150, 0))
 
 		# 3. Подключение к прибору 
 		try:
@@ -125,35 +125,44 @@ class CommandServerClass:
 				self.SoureMeter.use_rear_terminals()
 				
 			print("Keithley Connected Successfully!")
-			send_status(f"Connected: {os.path.basename(MeasAdapterPath)}", wx.Colour(0, 180, 0))
+			send_status("Connected Successfully", wx.Colour(0, 180, 0))
 
 		except Exception as e:
 			print(f"Connection Error: {e}")
 			err_msg = str(e).split('(')[0][:25]
-			send_status(f"Error: {err_msg}", wx.Colour(255, 0, 0))
+			send_status("Error", wx.Colour(255, 0, 0))
 
 
 		
+		# КОММУТАТОР (
+		# Выполняем, если передан comm_port ИЛИ если это первый запуск (оба None)
+		if comm_port or (meas_port is None and comm_port is None):
+			# Закрываем старое
+			if hasattr(self, 'CommutatorAdapter') and self.CommutatorAdapter:
+				try: self.CommutatorAdapter.connection.close()
+				except: pass
+			
+			# Выбираем путь
+			if comm_port:
+				CommPath = comm_port
+				self.CommutatorAdapterHandler = None
+			else:
+				# Стандартная логика / Эмуляция
+				CommPath = "/dev/ttyACM0"
+				self.CommutatorAdapterHandler = None
+				if not os.path.exists(CommPath):
+					CommPath = "/home/user/Temp/ttyV2"
+					if not os.path.exists(CommPath):
+						self.CommutatorAdapterHandler = subprocess.Popen(["socat", "-d", "-d", "pty,raw,echo=0,link=/home/user/Temp/ttyV2", "pty,raw,echo=0,link=/home/user/Temp/ttyV3"])
+						sleep(0.5)
+			
+			print(f"Connecting Commutator to: {CommPath}")
+			try:
+				self.CommutatorAdapter = SerialAdapter(CommPath, baudrate=9600, timeout=0.1, write_timeout=0.1)
+				print("Commutator Connected!")
+			except Exception as e:
+				print(f"Commutator Error: {e}")
 		
-		CommutatorAdapterPath = "/dev/ttyACM0"
-		self.CommutatorAdapterHandler = None
-		if not os.path.exists(CommutatorAdapterPath):
-			CommutatorAdapterPath = "/home/user/Temp/ttyV2"
-			# ~ self.CommutatorAdapterHandler = os.popen("socat -d -d pty,raw,echo=0,link=/home/user/Temp/ttyV2 pty,raw,echo=0,link=/home/user/Temp/ttyV3")
-			self.CommutatorAdapterHandler = subprocess.Popen(["socat", "-d", "-d", "pty,raw,echo=0,link=/home/user/Temp/ttyV2", "pty,raw,echo=0,link=/home/user/Temp/ttyV3"])
-			sleep(0.5)
-		
-		self.CommutatorAdapter = SerialAdapter(CommutatorAdapterPath,
-								baudrate=9600,
-								timeout=0.1,
-								write_timeout=0.1)
-
-
-		self.SoureMeter = Keithley2400(self.MeasAdapter)
-		self.SoureMeter.reset()
-		self.SoureMeter.use_front_terminals()
-		if self.gui.InputSlider.GetValue():
-			self.SoureMeter.use_rear_terminals()
 	
 	def runCHANNEL(self, command):
 		args = command.args
@@ -393,12 +402,16 @@ class CommandServerClass:
 			# ~ continue
 		
 		if not DRYRUN:
-			self.SoureMeter.apply_voltage(compliance_current=currLim)
-			self.SoureMeter.measure_current()
-			self.SoureMeter.enable_source()
-			sleep(timing)
-			self.SoureMeter.source_voltage = WaitV
-			sleep(timing)
+			try:
+				self.SoureMeter.apply_voltage(compliance_current=currLim)
+				self.SoureMeter.measure_current()
+				self.SoureMeter.enable_source()
+				sleep(timing)
+				self.SoureMeter.source_voltage = WaitV
+				sleep(timing)
+			except Exception as e:
+				print(f'error {e}')
+				return
 		
 		out = open(SavePath,'w')
 		startindex_disp = 0
@@ -512,6 +525,10 @@ class CommandServerClass:
 				new_port = command.args[0]
 				print(f"Server: Switching port to {new_port}")
 				self.HardwareInit(meas_port=new_port)
+			elif command.name == 'SET_COMM_PORT':
+				new_comm_port = command.args[0]
+				print(f"Server: Switching COMMUTATOR to {new_comm_port}")
+				self.HardwareInit(comm_port=new_comm_port)
 			elif command.name == 'CHANNEL':	self.runCHANNEL(command)
 			elif command.name == 'INPUT':	self.runINPUT(command)
 			# ~ elif command.name == 'IV':		self.runIV(command)
@@ -618,15 +635,33 @@ class MainFrame(MainFrameGUI):
 			self.PortSelector.Append("No ports found")
 			self.PortSelector.SetSelection(0)
 
+			#Коммутатор
+		if hasattr(self, 'CommPortSelector'):
+			self.CommPortSelector.Clear()
+			self.CommPortSelector.SetItems(ports)
+			if ports: 
+				# Попробуем выбрать второй порт по умолчанию, если он есть
+				idx = 1 if len(ports) > 1 else 0
+				self.CommPortSelector.SetSelection(idx)
+			else: 
+				self.CommPortSelector.Append("No ports")
+
 	def onPortSelected(self, event):
 		"""Выбор из выпадающего списка"""
 		selected_port = self.PortSelector.GetValue()
 		
-		# Простая защита от пустых значений
+		#  защита от пустых значений
 		if selected_port and "No ports" not in selected_port:
 			print(f"GUI: Sending request to set port: {selected_port}")
 			# Отправляем команду серверу
 			self.CommandServer.CommandQueue.put(Command('SET_PORT', [selected_port]))
+	def onCommPortSelected(self, event):
+		"""Выбор порта для Коммутатора"""
+		selected = self.CommPortSelector.GetValue()
+		if selected and "No ports" not in selected:
+			print(f"GUI: Set Commutator -> {selected}")
+			self.CommandServer.CommandQueue.put(Command('SET_COMM_PORT', [selected]))	
+
 
 	def _resize(self):
 		allsize = self.Size

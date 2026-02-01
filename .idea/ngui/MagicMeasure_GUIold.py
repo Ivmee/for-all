@@ -12,6 +12,7 @@ import wx.xrc
 import wx.lib.plot as wxPlot
 
 
+
 ###########################################################################
 ## Class MainFrameGUI
 ###########################################################################
@@ -343,11 +344,14 @@ class MainFrameGUI ( wx.Frame ):
 		self.m_panel13 = wx.Panel( self.m_notebook3, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
 		self.m_panel13.SetBackgroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_WINDOW ) )
 
-		gSizer5 = wx.GridSizer( 4, 3, 0, 0 )
+		gSizer5 = wx.GridSizer( 2, 3, 0, 0 )
 
 		PortSelectorChoices = []
-		self.PortSelector = wx.ComboBox( self.m_panel13, wx.ID_ANY, u"Port selection Ketley", wx.DefaultPosition, wx.DefaultSize, PortSelectorChoices, 0 )
+		self.PortSelector = wx.ComboBox( self.m_panel13, wx.ID_ANY, u"Port selection", wx.DefaultPosition, wx.DefaultSize, PortSelectorChoices, 0 )
 		gSizer5.Add( self.PortSelector, 0, wx.ALL, 5 )
+
+		self.ScanPorts = wx.Button( self.m_panel13, wx.ID_ANY, u"SCAN", wx.DefaultPosition, wx.DefaultSize, 0 )
+		gSizer5.Add( self.ScanPorts, 0, wx.ALL, 5 )
 
 		self.StatusLabel = wx.StaticText( self.m_panel13, wx.ID_ANY, u"Not Connected", wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.StatusLabel.Wrap( -1 )
@@ -356,29 +360,13 @@ class MainFrameGUI ( wx.Frame ):
 		self.StatusLabel.SetForegroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_BTNSHADOW ) )
 		self.StatusLabel.SetBackgroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_WINDOW ) )
 
-		gSizer5.Add( self.StatusLabel, 0, wx.ALL|wx.ALIGN_CENTER_HORIZONTAL, 5 )
-
-		self.ScanPorts = wx.Button( self.m_panel13, wx.ID_ANY, u"SCAN", wx.DefaultPosition, wx.DefaultSize, 0 )
-		gSizer5.Add( self.ScanPorts, 0, wx.ALL|wx.ALIGN_CENTER_HORIZONTAL, 5 )
-
-		CommPortSelectorChoices = []
-		self.CommPortSelector = wx.ComboBox( self.m_panel13, wx.ID_ANY, u"Port selection", wx.DefaultPosition, wx.DefaultSize, CommPortSelectorChoices, 0 )
-		gSizer5.Add( self.CommPortSelector, 0, wx.ALL, 5 )
-
-		self.StatusLabel1 = wx.StaticText( self.m_panel13, wx.ID_ANY, u"Not Connected", wx.DefaultPosition, wx.DefaultSize, 0 )
-		self.StatusLabel1.Wrap( -1 )
-
-		self.StatusLabel1.SetFont( wx.Font( wx.NORMAL_FONT.GetPointSize(), wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, True, wx.EmptyString ) )
-		self.StatusLabel1.SetForegroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_BTNSHADOW ) )
-		self.StatusLabel1.SetBackgroundColour( wx.SystemSettings.GetColour( wx.SYS_COLOUR_WINDOW ) )
-
-		gSizer5.Add( self.StatusLabel1, 0, wx.ALL|wx.ALIGN_CENTER_HORIZONTAL, 5 )
+		gSizer5.Add( self.StatusLabel, 0, wx.ALL, 5 )
 
 
 		self.m_panel13.SetSizer( gSizer5 )
 		self.m_panel13.Layout()
 		gSizer5.Fit( self.m_panel13 )
-		self.m_notebook3.AddPage( self.m_panel13, u"Port selection", True )
+		self.m_notebook3.AddPage( self.m_panel13, u"selection", True )
 
 		SettingsSizer.Add( self.m_notebook3, 1, wx.EXPAND |wx.ALL, 5 )
 
@@ -740,7 +728,6 @@ class MainFrameGUI ( wx.Frame ):
 		self.InputSlider.Bind( wx.EVT_SCROLL, self.onInputChange )
 		self.PortSelector.Bind( wx.EVT_COMBOBOX, self.onPortSelected )
 		self.ScanPorts.Bind( wx.EVT_BUTTON, self.onScanPorts )
-		self.CommPortSelector.Bind( wx.EVT_COMBOBOX, self.onCommPortSelected )
 		self.SaveDir.Bind( wx.EVT_LEFT_DCLICK, self.onSelectDir )
 		self.InctementModifier.Bind( wx.EVT_CHECKBOX, self.onChangeIncrement )
 		self.FileName.Bind( wx.EVT_TEXT, self.onFilenameUpdate )
@@ -830,9 +817,6 @@ class MainFrameGUI ( wx.Frame ):
 		event.Skip()
 
 	def onScanPorts( self, event ):
-		event.Skip()
-
-	def onCommPortSelected( self, event ):
 		event.Skip()
 
 	def onSelectDir( self, event ):
