@@ -14,10 +14,35 @@ from queue import Queue
 from copy import copy
 import subprocess
 import signal
+import serial.tools.list_ports
+import re
 
 DRYRUN = False
 
 timing = 0.025
+
+
+def get_available_ports():
+    """Возвращает отсортированный список портов (сначала USB/Virtual, потом остальные)."""
+    try:
+        ports_objects = serial.tools.list_ports.comports()
+        port_names = [p.device for p in ports_objects]#только имена
+    except:
+        return ["/dev/ttyS0", "COM1"]
+
+    # Функция для натуральной сортировки (разбивает 'COM10' на ['COM', 10])
+    def natural_key(string_):
+        return [int(s) if s.isdigit() else s.lower() for s in re.split(r'(\d+)', string_)]
+
+    # Приоритет: USB и ACM выше, чем ttyS
+    def priority_key(string_):
+        if 'USB' in string_ or 'ACM' in string_ or 'COM' in string_:
+            return 0 
+        return 1
+
+    port_names.sort(key=lambda s: (priority_key(s), natural_key(s)))
+    return port_names
+
 
 
 try:
@@ -45,22 +70,57 @@ class CommandServerClass:
 		if not DRYRUN:
 			self.HardwareInit()
 	
-	def HardwareInit(self):
-		# Тут описать коммуникацию
+	def HardwareInit(self, meas_port=None):
+		# 1. Сначала закрываем старое соединение, если оно уже есть
+		#  нужно, чтобы освободить порт перед переподключением
+		if hasattr(self, 'MeasAdapter') and self.MeasAdapter:
+			try:
+				self.MeasAdapter.connection.close()
+			except:
+				pass
+
+		# 2.выбор пути к порту
+		if meas_port:
+			# Если порт передан аргументом (из GUI), используем его
+			MeasAdapterPath = meas_port
+			self.MeasAdapterHandler = None 
+		else:
+			# ЕСЛИ ПОРТ НЕ ВЫБРАН
+			MeasAdapterPath = "/dev/ttyS0"
+			self.MeasAdapterHandler = None
+			if not os.path.exists(MeasAdapterPath):
+				print("meas emulation mode") # Эмуляция
+				MeasAdapterPath = "/home/user/Temp/ttyV0"
+				# Проверяем, запущен ли уже socat, если нет - запускаем
+				if not os.path.exists(MeasAdapterPath):
+					self.MeasAdapterHandler = subprocess.Popen(["socat", "-d", "-d", "pty,raw,echo=0,link=/home/user/Temp/ttyV0", "pty,raw,echo=0,link=/home/user/Temp/ttyV1"])
+					sleep(0.5)
+
+		print(f"Connecting to MeasAdapter at: {MeasAdapterPath}")
+
+		# 3. Подключение к прибору 
+		try:
+			self.MeasAdapter = SerialAdapter(MeasAdapterPath,
+									baudrate=57600,
+									timeout=0.1,
+									write_timeout=0.1)
+			
+			self.SoureMeter = Keithley2400(self.MeasAdapter)
+			self.SoureMeter.reset()
+			self.SoureMeter.use_front_terminals()
+			
+			# Восстанавливаем настройки (Front/Rear) из положения слайдера в GUI
+			# Проверяем, существует ли gui, на случай сухого запуска
+			if hasattr(self, 'gui') and self.gui.InputSlider.GetValue():
+				self.SoureMeter.use_rear_terminals()
+				
+			print("Keithley Connected Successfully!")
+
+		except Exception as e:
+			print(f"Connection Error: {e}")
+
+
 		
-		# ~ # Connect and configure the instrument
-		MeasAdapterPath = "/dev/ttyS0"
-		self.MeasAdapterHandler = None
-		if not os.path.exists(MeasAdapterPath):
-			print("meas")
-			MeasAdapterPath = "/home/user/Temp/ttyV0"
-			# ~ self.MeasAdapterHandler = os.popen("socat -d -d pty,raw,echo=0,link=/home/user/Temp/ttyV0 pty,raw,echo=0,link=/home/user/Temp/ttyV1")
-			self.MeasAdapterHandler = subprocess.Popen(["socat", "-d", "-d", "pty,raw,echo=0,link=/home/user/Temp/ttyV0", "pty,raw,echo=0,link=/home/user/Temp/ttyV1"])
-			sleep(0.5)
-		self.MeasAdapter = SerialAdapter(MeasAdapterPath,
-								baudrate=57600,
-								timeout=0.1,
-								write_timeout=0.1)
 		
 		CommutatorAdapterPath = "/dev/ttyACM0"
 		self.CommutatorAdapterHandler = None
@@ -76,11 +136,11 @@ class CommandServerClass:
 								write_timeout=0.1)
 
 
-		self.SoureMeter = Keithley2400(self.MeasAdapter)
-		self.SoureMeter.reset()
-		self.SoureMeter.use_front_terminals()
-		if self.gui.InputSlider.GetValue():
-			self.SoureMeter.use_rear_terminals()
+		#self.SoureMeter = Keithley2400(self.MeasAdapter)
+		#self.SoureMeter.reset()
+		#self.SoureMeter.use_front_terminals()
+		#if self.gui.InputSlider.GetValue():
+		#	self.SoureMeter.use_rear_terminals()
 	
 	def runCHANNEL(self, command):
 		args = command.args
@@ -434,6 +494,11 @@ class CommandServerClass:
 				if self.MeasAdapterHandler:		self.MeasAdapterHandler.send_signal(signal.SIGTERM)
 				if self.CommutatorAdapterHandler:	self.CommutatorAdapterHandler.send_signal(signal.SIGTERM)
 				break
+			elif command.name == 'SET_PORT':
+				# Аргумент 0 - это имя порта, которое прислал GUI
+				new_port = command.args[0]
+				print(f"Server: Switching port to {new_port}")
+				self.HardwareInit(meas_port=new_port)
 			elif command.name == 'CHANNEL':	self.runCHANNEL(command)
 			elif command.name == 'INPUT':	self.runINPUT(command)
 			# ~ elif command.name == 'IV':		self.runIV(command)
@@ -508,8 +573,7 @@ class MainFrame(MainFrameGUI):
 						]
 		
 		self.CommandServer = CommandServerClass(self)
-		
-		self.CommandServerThread=threading.Thread(target=self.CommandServer.run)
+		self.CommandServerThread = threading.Thread(target=self.CommandServer.run)
 		self.CommandServerThread.start()
 
 		# Регистрация события для обратной передачи данных в GUI из коммандного сервера
@@ -524,7 +588,33 @@ class MainFrame(MainFrameGUI):
 		
 		# Выключение релюх коммутатора
 		self.CommandServer.CommandQueue.put(Command('CHANNEL', [5, 0, True]))
+		self.onScanPorts(None)
 	
+
+	def onScanPorts(self, event):
+		"""Нажатие кнопки Scan"""
+		ports = get_available_ports()
+		
+		
+		self.PortSelector.Clear()
+		self.PortSelector.SetItems(ports)
+		
+		if ports:
+			self.PortSelector.SetSelection(0)
+		else:
+			self.PortSelector.Append("No ports found")
+			self.PortSelector.SetSelection(0)
+
+	def onPortSelected(self, event):
+		"""Выбор из выпадающего списка"""
+		selected_port = self.PortSelector.GetValue()
+		
+		# защита от пустых значений
+		if selected_port and "No ports" not in selected_port:
+			print(f"GUI: Sending request to set port: {selected_port}")
+			# Отправляем команду серверу
+			self.CommandServer.CommandQueue.put(Command('SET_PORT', [selected_port]))
+
 	def _resize(self):
 		allsize = self.Size
 		self.SettingsPanel.SetSize(self.SettingsPanelWidth,allsize[1])
@@ -994,7 +1084,7 @@ class MainFrame(MainFrameGUI):
 		print('onStop')
 		self.CommandServer.STOP = True
 		self.CommandServer.CommandQueue.put(Command('EMPTY', []))
-
+	
 				
 	
 	

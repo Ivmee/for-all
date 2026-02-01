@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ###########################################################################
-## Python code generated with wxFormBuilder (version 4.2.1-cc2739a)
+## Python code generated with wxFormBuilder (version 4.2.1-0-g80c4cb6)
 ## http://www.wxformbuilder.org/
 ##
 ## PLEASE DO *NOT* EDIT THIS FILE!
@@ -10,6 +10,8 @@
 import wx
 import wx.xrc
 import wx.lib.plot as wxPlot
+
+
 
 ###########################################################################
 ## Class MainFrameGUI
@@ -72,7 +74,8 @@ class MainFrameGUI ( wx.Frame ):
 		SettingsSizer.SetFlexibleDirection( wx.BOTH )
 		SettingsSizer.SetNonFlexibleGrowMode( wx.FLEX_GROWMODE_SPECIFIED )
 
-		self.PresetSettingsPanel = wx.Panel( self.SettingsPanel, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
+		self.m_notebook3 = wx.Notebook( self.SettingsPanel, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.PresetSettingsPanel = wx.Panel( self.m_notebook3, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
 		PresetSettingsSizer = wx.StaticBoxSizer( wx.StaticBox( self.PresetSettingsPanel, wx.ID_ANY, u"Presets" ), wx.VERTICAL )
 
 		fgSizer12 = wx.FlexGridSizer( 1, 2, 0, 0 )
@@ -337,7 +340,24 @@ class MainFrameGUI ( wx.Frame ):
 		self.PresetSettingsPanel.SetSizer( PresetSettingsSizer )
 		self.PresetSettingsPanel.Layout()
 		PresetSettingsSizer.Fit( self.PresetSettingsPanel )
-		SettingsSizer.Add( self.PresetSettingsPanel, 1, wx.ALL|wx.EXPAND, 0 )
+		self.m_notebook3.AddPage( self.PresetSettingsPanel, u"Presets", False )
+		self.m_panel13 = wx.Panel( self.m_notebook3, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
+		gSizer5 = wx.GridSizer( 0, 2, 0, 0 )
+
+		PortSelectorChoices = []
+		self.PortSelector = wx.ComboBox( self.m_panel13, wx.ID_ANY, u"Port selection", wx.DefaultPosition, wx.DefaultSize, PortSelectorChoices, 0 )
+		gSizer5.Add( self.PortSelector, 0, wx.ALL, 5 )
+
+		self.ScanPorts = wx.Button( self.m_panel13, wx.ID_ANY, u"SCAN", wx.DefaultPosition, wx.DefaultSize, 0 )
+		gSizer5.Add( self.ScanPorts, 0, wx.ALL, 5 )
+
+
+		self.m_panel13.SetSizer( gSizer5 )
+		self.m_panel13.Layout()
+		gSizer5.Fit( self.m_panel13 )
+		self.m_notebook3.AddPage( self.m_panel13, u"selection", True )
+
+		SettingsSizer.Add( self.m_notebook3, 1, wx.EXPAND |wx.ALL, 5 )
 
 		self.SavingPanel = wx.Panel( self.SettingsPanel, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
 		SavingSizer = wx.StaticBoxSizer( wx.StaticBox( self.SavingPanel, wx.ID_ANY, u"Saving parameters" ), wx.VERTICAL )
@@ -446,7 +466,7 @@ class MainFrameGUI ( wx.Frame ):
 		self.IV_panel.SetSizer( gbSizer1 )
 		self.IV_panel.Layout()
 		gbSizer1.Fit( self.IV_panel )
-		self.ModeNB.AddPage( self.IV_panel, u"I-V", True )
+		self.ModeNB.AddPage( self.IV_panel, u"I-V", False )
 		self.IT_panel = wx.Panel( self.ModeNB, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
 		gbSizer3 = wx.GridBagSizer( 0, 0 )
 		gbSizer3.SetFlexibleDirection( wx.BOTH )
@@ -621,7 +641,7 @@ class MainFrameGUI ( wx.Frame ):
 		self.Mem_panel.SetSizer( gbSizer31 )
 		self.Mem_panel.Layout()
 		gbSizer31.Fit( self.Mem_panel )
-		self.ModeNB.AddPage( self.Mem_panel, u"Mem", False )
+		self.ModeNB.AddPage( self.Mem_panel, u"Mem", True )
 
 		ModeSizer.Add( self.ModeNB, 1, wx.ALL|wx.EXPAND, 5 )
 
@@ -695,6 +715,8 @@ class MainFrameGUI ( wx.Frame ):
 		self.FR_2W_neg.Bind( wx.EVT_CHECKBOX, self.onChannelChange )
 		self.ChannelsOff.Bind( wx.EVT_BUTTON, self.onChannelChange )
 		self.InputSlider.Bind( wx.EVT_SCROLL, self.onInputChange )
+		self.PortSelector.Bind( wx.EVT_COMBOBOX, self.onPortSelected )
+		self.ScanPorts.Bind( wx.EVT_BUTTON, self.onScanPorts )
 		self.SaveDir.Bind( wx.EVT_LEFT_DCLICK, self.onSelectDir )
 		self.InctementModifier.Bind( wx.EVT_CHECKBOX, self.onChangeIncrement )
 		self.FileName.Bind( wx.EVT_TEXT, self.onFilenameUpdate )
@@ -778,6 +800,12 @@ class MainFrameGUI ( wx.Frame ):
 
 
 	def onInputChange( self, event ):
+		event.Skip()
+
+	def onPortSelected( self, event ):
+		event.Skip()
+
+	def onScanPorts( self, event ):
 		event.Skip()
 
 	def onSelectDir( self, event ):

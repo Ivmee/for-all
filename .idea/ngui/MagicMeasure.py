@@ -92,7 +92,7 @@ class CommandServerClass:
 			if meas_port:
 				# Если порт передан аргументом (из GUI), используем его
 				MeasAdapterPath = meas_port
-				# Сбрасываем хендлер эмулятора, так как мы на реальном железе
+				# Сбрасывае
 				self.MeasAdapterHandler = None 
 			else:
 				# ЕСЛИ ПОРТ НЕ ВЫБРАН
@@ -112,13 +112,13 @@ class CommandServerClass:
 			self.MeasAdapterPath = MeasAdapterPath
 
 			current_comm = getattr(self, 'CommPath', None)
-			
+			#Проверим на дублирование
 			if current_comm and MeasAdapterPath == current_comm:
 				print(f"CONFLICT: Port {MeasAdapterPath} is busy by Comm!")
 				send_status("Port Conflict!", wx.Colour(255, 0, 0), target="MEAS")
 				# Прерываем выполнение
 				return
-			print(f"Connecting Commutator to: {MeasAdapterPath}")
+			print(f"Connecting  to Keithley: {MeasAdapterPath}")
 			send_status("Connecting...", wx.Colour(200, 150, 0), target='MEAS')
 
 			# 3. Подключение к прибору 
@@ -131,8 +131,8 @@ class CommandServerClass:
 				self.SoureMeter.reset()
 				self.SoureMeter.use_front_terminals()
 				
-				# Восстанавливаем настройки (Front/Rear) из положения слайдера в GUI
-				# Проверяем, существует ли gui, на случай сухого запуска
+				# Восстанавливаем настройки  из положения слайдера в GUI
+				# Проверяем, существует ли gui
 				if hasattr(self, 'gui') and self.gui.InputSlider.GetValue():
 					self.SoureMeter.use_rear_terminals()
 					
@@ -146,7 +146,7 @@ class CommandServerClass:
 
 
 		
-		# КОММУТАТОР (
+		# КОММУТАТОР 
 		# Выполняем, если передан comm_port ИЛИ если это первый запуск (оба None)
 		if comm_port or (meas_port is None and comm_port is None):
 			# 1. Закрываем старое
@@ -655,24 +655,25 @@ class MainFrame(MainFrameGUI):
 		"""Нажатие кнопки Scan"""
 		ports = get_available_ports()
 		
-		# PortSelector - это имя переменной из wxFormBuilder
+		#  KEITHLEY 
 		self.PortSelector.Clear()
 		self.PortSelector.SetItems(ports)
 		
 		if ports:
-			self.PortSelector.SetSelection(0)
+			# БЫЛО: self.PortSelector.SetSelection(0) 
+			self.PortSelector.SetValue("Выберите порт...") 
 		else:
 			self.PortSelector.Append("No ports found")
 			self.PortSelector.SetSelection(0)
 
-			#Коммутатор
+		#  КОММУТАТОР ---
 		if hasattr(self, 'CommPortSelector'):
 			self.CommPortSelector.Clear()
 			self.CommPortSelector.SetItems(ports)
 			if ports: 
-				# Попробуем выбрать второй порт по умолчанию, если он есть
-				idx = 1 if len(ports) > 1 else 0
-				self.CommPortSelector.SetSelection(idx)
+				# idx = 1 if len(ports) > 1 else 0
+				# self.CommPortSelector.SetSelection(idx)
+				self.CommPortSelector.SetValue("Выберите порт...")
 			else: 
 				self.CommPortSelector.Append("No ports")
 
