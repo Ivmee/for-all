@@ -66,7 +66,8 @@ class CommandServerClass:
 		self.BUSY = False
 				
 		self.gui = gui_class
-		
+		self.MeasAdapterPath = None
+		self.CommPath = None
 		if not DRYRUN:
 			self.HardwareInit()
 	
@@ -86,7 +87,7 @@ class CommandServerClass:
 					self.MeasAdapter.connection.close()
 				except:
 					pass
-
+			
 			# 2.  выбор пути к порту
 			if meas_port:
 				# Если порт передан аргументом (из GUI), используем его
@@ -104,18 +105,28 @@ class CommandServerClass:
 					if not os.path.exists(MeasAdapterPath):
 						self.MeasAdapterHandler = subprocess.Popen(["socat", "-d", "-d", "pty,raw,echo=0,link=/home/user/Temp/ttyV0", "pty,raw,echo=0,link=/home/user/Temp/ttyV1"])
 						sleep(0.5)
-
+		
 			print(f"Connecting to MeasAdapter at: {MeasAdapterPath}")
 			send_status("Connecting", wx.Colour(200, 150, 0),target='MEAS')
 			# Сохраняем выбранный путь в переменную класса, чтобы потом сравнить
 			self.MeasAdapterPath = MeasAdapterPath
+
+			current_comm = getattr(self, 'CommPath', None)
+			
+			if current_comm and MeasAdapterPath == current_comm:
+				print(f"CONFLICT: Port {MeasAdapterPath} is busy by Comm!")
+				send_status("Port Conflict!", wx.Colour(255, 0, 0), target="MEAS")
+				# Прерываем выполнение
+				return
+			print(f"Connecting Commutator to: {MeasAdapterPath}")
+			send_status("Connecting...", wx.Colour(200, 150, 0), target='MEAS')
+
 			# 3. Подключение к прибору 
 			try:
 				self.MeasAdapter = SerialAdapter(MeasAdapterPath,
 										baudrate=57600,
 										timeout=0.1,
 										write_timeout=0.1)
-				
 				self.SoureMeter = Keithley2400(self.MeasAdapter)
 				self.SoureMeter.reset()
 				self.SoureMeter.use_front_terminals()
@@ -168,7 +179,7 @@ class CommandServerClass:
 				return
 			print(f"Connecting Commutator to: {CommPath}")
 			send_status("Connecting...", wx.Colour(200, 150, 0), target='COMM')
-
+			self.CommPath = CommPath
 			# 3. Подключение
 			try:
 				self.CommutatorAdapter = SerialAdapter(CommPath, baudrate=9600, timeout=0.1, write_timeout=0.1)
