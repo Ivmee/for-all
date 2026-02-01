@@ -30,7 +30,7 @@ def get_available_ports():
     except:
         return ["/dev/ttyS0", "COM1"]
 
-    # Функция для натуральной сортировки (разбивает 'COM10' на ['COM', 10])
+    # Функция   сортировки (разбивает 'COM10' на ['COM', 10])
     def natural_key(string_):
         return [int(s) if s.isdigit() else s.lower() for s in re.split(r'(\d+)', string_)]
 
@@ -72,6 +72,10 @@ class CommandServerClass:
 			self.HardwareInit()
 	
 	def HardwareInit(self, meas_port=None,comm_port=None):
+		if DRYRUN:
+			print("initialization skipped.")
+			return
+
 		def send_status(message, color, target='MEAS'):
 			if hasattr(self, 'gui'):
 				self.gui.CallbackData.Lock()
