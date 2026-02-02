@@ -107,6 +107,7 @@ class CommandServerClass:
 					MeasAdapterPath = "/home/user/Temp/ttyV0"
 					# Проверяем, запущен ли уже socat, если нет - запускаем
 					if not os.path.exists(MeasAdapterPath):
+						# ~ self.MeasAdapterHandler = os.popen("socat -d -d pty,raw,echo=0,link=/home/user/Temp/ttyV0 pty,raw,echo=0,link=/home/user/Temp/ttyV1")
 						self.MeasAdapterHandler = subprocess.Popen(["socat", "-d", "-d", "pty,raw,echo=0,link=/home/user/Temp/ttyV0", "pty,raw,echo=0,link=/home/user/Temp/ttyV1"])
 						sleep(0.5)
 		
@@ -147,10 +148,7 @@ class CommandServerClass:
 				print(f"Connection Error: {e}")
 				err_msg = str(e).split('(')[0][:25]
 				send_status("Error", wx.Colour(255, 0, 0),target='MEAS')
-
-
-		
-		# КОММУТАТОР 
+							# КОММУТАТОР 
 		# Выполняем, если передан comm_port ИЛИ если это первый запуск (оба None)
 		if comm_port or (meas_port is None and comm_port is None):
 			# 1. Закрываем старое
@@ -170,14 +168,14 @@ class CommandServerClass:
 					
 					CommPath = "/home/user/Temp/ttyV2"
 					if not os.path.exists(CommPath):
+						# ~ self.CommutatorAdapterHandler = os.popen("socat -d -d pty,raw,echo=0,link=/home/user/Temp/ttyV2 pty,raw,echo=0,link=/home/user/Temp/ttyV3")
 						self.CommutatorAdapterHandler = subprocess.Popen(["socat", "-d", "-d", "pty,raw,echo=0,link=/home/user/Temp/ttyV2", "pty,raw,echo=0,link=/home/user/Temp/ttyV3"])
 						sleep(0.5)
 				# ПРОВЕРКА НА ДУБЛИРОВАНИЕ ПОРТОВ
-			# Получаем текущий порт Keithley
-			current_keithley = getattr(self, 'MeasAdapterPath', None)
+			current_keithley = getattr(self, 'MeasAdapterPath', None) # Получаем текущий порт Keithley
 			
 			if current_keithley and CommPath == current_keithley:
-				print(f"CONFLICT: Port {CommPath} is busy by Keithley!")
+				print(f" Port {CommPath} is busy by Commutator!")
 				send_status("Port Conflict!", wx.Colour(255, 0, 0), target='COMM')
 				# Прерываем выполнение
 				return
@@ -668,17 +666,17 @@ class MainFrame(MainFrameGUI):
 		ports = get_available_ports()
 		
 		#  KEITHLEY 
-		self.PortSelector.Clear()
+		self.PortSelector.Clear()#Чистим старые порты
 		self.PortSelector.SetItems(ports)
 		
 		if ports:
-			# БЫЛО: self.PortSelector.SetSelection(0) 
+			#self.PortSelector.SetSelection(0) 
 			self.PortSelector.SetValue("Выберите порт...") 
 		else:
 			self.PortSelector.Append("No ports found")
 			self.PortSelector.SetSelection(0)
 
-		#  КОММУТАТОР ---
+		#  Коммутатор
 		if hasattr(self, 'CommPortSelector'):
 			self.CommPortSelector.Clear()
 			self.CommPortSelector.SetItems(ports)
